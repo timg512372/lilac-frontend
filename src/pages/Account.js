@@ -5,9 +5,14 @@ import WhiteBackground from '../components/WhiteBackground.js';
 import UserContext from '../UserContext';
 import { getPublications } from '../tools/get-pubs';
 import { getProfile } from '../tools/get-profile';
-import worldID from '@worldcoin/id';
 
 function capitalize(str) {
+    if (str === 'dydx') {
+        return 'dYdX';
+    }
+    if (str.length === 0) {
+        return '';
+    }
     return str[0].toUpperCase() + str.substring(1);
 }
 
@@ -27,7 +32,10 @@ function Account({ address }) {
         const fetchEvents = async () => {
             console.log('fetching data');
             const compound = await axios.get(`${process.env.REACT_APP_SERVER_URL}api/data/`, {
-                params: { address, protocol: 'compound' },
+                params: {
+                    address,
+                    protocol: 'compound',
+                },
             });
             const dydx = await axios.get(`${process.env.REACT_APP_SERVER_URL}api/data/`, {
                 params: { address, protocol: 'dydx' },
@@ -58,34 +66,6 @@ function Account({ address }) {
         fetchUser();
     }, [address]);
 
-    useEffect(() => {
-        window.addEventListener('DOMContentLoaded', async () => {
-            console.log('trying worldid');
-
-            try {
-                worldID.init('world-id-container', {
-                    enable_telemetry: false,
-                    action_id: 'wid_staging_bd32fe01801f577de8ae546ec30e765c', // <- use the address from the Developer Portal
-                    signal: address,
-                });
-
-                setWorldReady('ready');
-                console.log(worldID.isInitialized());
-
-                worldID
-                    .enable()
-                    .then((successResult) => {
-                        console.log('Verified successfully:', successResult);
-                        setWorldReady('ready');
-                    })
-                    .catch((errorResult) => console.warn('Verification failed:', errorResult)); // <- Pass this `result` to your backend or smart contract (see below)
-            } catch (failure) {
-                console.warn('World ID verification failed:', failure);
-                // Re-activate here so your end user can try again
-            }
-        });
-    }, []);
-
     console.log(walletAddr);
     console.log(githubUsername);
     console.log(name);
@@ -101,7 +81,7 @@ function Account({ address }) {
 
     const getLensPublications = async (request) => {
         const userStruct = await axios.get(
-            `${process.env.REACT_APP_SERVER_URL}api/user/getUserData?address=${web3[0]}`
+            `${process.env.REACT_APP_SERVER_URL}api/user/getUserData?address=${address}`
         );
         const result = await getPublications({
             profileId: userStruct.data.profileId,
@@ -112,17 +92,14 @@ function Account({ address }) {
     };
 
     useEffect(() => {
-        console.log('running use effect');
         const profile = async (request) => {
             console.log('fetching lens data');
             const userStruct = await axios.get(
-                `${process.env.REACT_APP_SERVER_URL}api/user/getUserData?address=${web3[0]}`
+                `${process.env.REACT_APP_SERVER_URL}api/user/getUserData?address=${address}`
             );
-            // console.log(web3[0]);
-            // console.log(userStruct);
+            console.log(userStruct);
             const result = await getProfile({
-                handle: userStruct.data.user.name,
-                //handle: 'emmaguo',
+                handle: userStruct.data.user.name + '.test',
             });
             console.log(result);
             await axios.put(`${process.env.REACT_APP_SERVER_URL}api/user/saveUserData`, {
@@ -131,9 +108,7 @@ function Account({ address }) {
             });
         };
 
-        if (web3[0] == address) {
-            profile();
-        }
+        profile();
     }, []);
 
     return (
@@ -199,7 +174,7 @@ function Account({ address }) {
                             onClick={handleSubmit}
                             className="button button--secondary"
                         >
-                            SAVE
+                            Save
                         </Button>
                     </div>
                 </div>
@@ -214,29 +189,38 @@ function Account({ address }) {
                     justifyContent: 'space-around',
                     flexWrap: 'wrap',
                     width: '70vw',
+                    height: '100%',
                     // backgroundColor: '#FFDDFF',
                 }}
             >
                 {events.map((event) => (
-                    <Card title={capitalize(event.type)} bordered={false}>
+                    <Card
+                        title={capitalize(event.type)}
+                        bordered={false}
+                        style={{ margin: '10px' }}
+                    >
                         <p>{capitalize(event.protocol)}</p>
                         <p>Reputation Points: {event.magnitude}</p>
                     </Card>
                 ))}
             </div>
-            <div id="world-id-container" style={{ zIndex: 0 }}></div>
-            <Button
-                onClick={() =>
-                    window.location.replace(
-                        `https://id.worldcoin.org/use?action_id=${address}&signal=0x0000000000000000000000000000000000000000&return_to=${encodeURIComponent(
-                            'http://localhost:3000/account/'
-                        )}`
-                    )
-                }
-            >
-                {' '}
-                Verify with WorldID{' '}
-            </Button>
+            {address == web3[[0]] ? (
+                <Button
+                    className="button button--secondary"
+                    variant="primary"
+                    type="submit"
+                    onClick={() =>
+                        window.location.replace(
+                            `https://id.worldcoin.org/use?action_id=${address}&signal=0x0000000000000000000000000000000000000000&return_to=${encodeURIComponent(
+                                `${process.env.REACT_APP_CLIENT_URL}worldcoin/${address}`
+                            )}`
+                        )
+                    }
+                >
+                    {' '}
+                    Verify with WorldID{' '}
+                </Button>
+            ) : null}
             <br />
         </div>
     );
