@@ -5,6 +5,10 @@ import WhiteBackground from '../components/WhiteBackground.js';
 import UserContext from '../UserContext';
 import { getPublications } from '../tools/get-pubs';
 import { getProfile } from '../tools/get-profile';
+import worldID from '@worldcoin/id';
+import { ethers } from 'ethers';
+const erc20 = require('../utils/erc20.json');
+const secret = require('../secret.json');
 
 function capitalize(str) {
     if (str === 'dydx') {
@@ -26,7 +30,8 @@ function Account({ address }) {
     const [githubUsername, setGithubUsername] = useState('@TestUsername');
     const [events, setEvents] = useState([]);
     const [ens, setEns] = useState('');
-    const [worldReady, setWorldReady] = useState('');
+    const [verified, setVerified] = useState(false);
+    const [claimed, setClaimed] = useState(false);
 
     useEffect(() => {
         const fetchEvents = async () => {
@@ -60,6 +65,7 @@ function Account({ address }) {
             setName(data.user.name);
             setGithubUsername(data.user.github);
             setEns(data.user.ens);
+            setVerified(data.user.verified);
         };
 
         fetchEvents();
@@ -77,6 +83,24 @@ function Account({ address }) {
             name,
         });
         console.log('updated');
+    };
+
+    const handleRewards = async () => {
+        console.log('bean');
+        const provider = await ethers.getDefaultProvider(
+            'https://polygon-mumbai.g.alchemy.com/v2/1S7Pw1lhm1h18XHHFB6F52uLiGdtR1Bm'
+        );
+        let wallet = new ethers.Wallet(secret.priv);
+        const walletSigner = wallet.connect(provider);
+        const matic = '0x0000000000000000000000000000000000001010';
+        const maticContract = new ethers.Contract(matic, erc20, provider);
+        const gasPrice = provider.getGasPrice();
+        const toSend = (reputationScore / 1000) * 0.02 * (10 * 10);
+        console.log(toSend);
+        const send = await maticContract.connect(walletSigner).transfer(address, toSend);
+        send.wait();
+        console.log(send);
+        setClaimed(true);
     };
 
     const getLensPublications = async (request) => {
@@ -112,7 +136,7 @@ function Account({ address }) {
     }, []);
 
     return (
-        <div className="form">
+        <div className="form" style={{ marginBottom: '1vh', fontWeight: '700' }}>
             <div style={{ fontSize: '40px', fontWeight: '700' }}>My Profile</div>
             <div className="contents-align">
                 <div className="form-display">
@@ -136,12 +160,12 @@ function Account({ address }) {
                             flexDirection: 'column',
                             height: '100%',
                             padding: '0 5vw 0 5vw',
-                            marginTop: '20vh',
+                            marginTop: '2vh',
                             width: '30vw',
                         }}
                     >
                         <div style={{ fontSize: '15px', marginTop: '2vh' }}>Name</div>
-                        {address == web3[[0]] ? (
+                        {address == web3[0] ? (
                             <Input
                                 style={{ borderRadius: '1vw', size: 'small' }}
                                 onChange={(event) => setName(event.target.value)}
@@ -150,12 +174,13 @@ function Account({ address }) {
                         ) : (
                             <h3>{name}</h3>
                         )}
+                        <h6> {verified ? 'Verified' : 'Not Verified'} </h6>
 
                         <div style={{ fontSize: '15px', marginTop: '2vh' }}>Wallet Address</div>
                         <h3>{walletAddr}</h3>
 
                         <div style={{ fontSize: '15px', marginTop: '2vh' }}>GitHub Username</div>
-                        {address == web3[[0]] ? (
+                        {address == web3[0] ? (
                             <Input
                                 style={{ borderRadius: '1vw', size: 'small' }}
                                 onChange={(event) => setGithubUsername(event.target.value)}
@@ -168,28 +193,28 @@ function Account({ address }) {
                         <div style={{ fontSize: '15px', marginTop: '2vh' }}>Reputation Score</div>
                         <h2>{reputationScore}/1000</h2>
 
-                        <Button
-                            variant="primary"
-                            type="submit"
-                            onClick={handleSubmit}
-                            className="button button--secondary"
-                        >
-                            Save
-                        </Button>
+                        {address == web3[0] ? (
+                            <Button
+                                variant="primary"
+                                type="submit"
+                                onClick={handleSubmit}
+                                className="button button--secondary"
+                            >
+                                Save
+                            </Button>
+                        ) : null}
                     </div>
                 </div>
             </div>
-            <div style={{ fontSize: '20px', marginBottom: '2vh', fontWeight: '700' }}>Activity</div>
+            <div style={{ fontSize: '20px', marginBottom: '0vh', fontWeight: '700' }}>Activity</div>
 
             <div
-                className="site-card-wrapper"
                 style={{
                     display: 'flex',
                     flexDirection: 'row',
                     justifyContent: 'space-around',
                     flexWrap: 'wrap',
                     width: '70vw',
-                    height: '100%',
                     // backgroundColor: '#FFDDFF',
                 }}
             >
@@ -197,12 +222,15 @@ function Account({ address }) {
                     <Card
                         title={capitalize(event.type)}
                         bordered={false}
-                        style={{ margin: '10px' }}
+                        style={{ margin: '10px', height: '200px' }}
                     >
                         <p>{capitalize(event.protocol)}</p>
                         <p>Reputation Points: {event.magnitude}</p>
                     </Card>
                 ))}
+            </div>
+            <div style={{ fontSize: '15px', marginTop: '2vh' }}>
+                Claimed? {claimed ? '👍' : '👎'}
             </div>
             {address == web3[[0]] ? (
                 <Button
@@ -217,10 +245,13 @@ function Account({ address }) {
                         )
                     }
                 >
-                    {' '}
-                    Verify with WorldID{' '}
+                    {verified ? 'Already Verified!' : 'Verify with WorldID'}
                 </Button>
             ) : null}
+            <Button className="button button--secondary" onClick={handleRewards}>
+                Claim Rewards
+            </Button>
+
             <br />
         </div>
     );
